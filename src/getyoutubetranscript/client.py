@@ -184,9 +184,9 @@ class Client:
         Args:
             query: Search query. Required for a first page unless
                 ``page_token`` is given.
-            page_token: Continuation token from a previous response's
-                ``pagination.next_page_token``, to fetch the next page. Treat
-                as opaque - don't construct it yourself.
+            page_token: The ``continuation_token`` from a previous response,
+                to fetch the next page. Treat as opaque - don't construct it
+                yourself. Expires after 24 hours.
             type: Restrict results to ``"video"`` (default) or ``"channel"``.
                 Never mixes both kinds in one response.
             country: Two-letter region code, e.g. ``"us"``.
@@ -196,7 +196,8 @@ class Client:
         Returns:
             dict with ``query``, and either ``video_results`` or
             ``channel_results`` depending on ``type``, plus
-            ``pagination.next_page_token`` when more results are available.
+            ``continuation_token`` for the next page (missing or ``None`` when
+            there are no more pages, so read it with ``.get()``).
 
         Raises:
             ValueError: if neither ``query`` nor ``page_token`` is given.

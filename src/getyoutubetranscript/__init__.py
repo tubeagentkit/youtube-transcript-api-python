@@ -13,7 +13,7 @@ from .exceptions import GetYouTubeTranscriptError
 from .formatters import format_transcript, to_json, to_srt, to_text, to_timed_text, to_vtt
 from .types import Segment, TranscriptData
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 __all__ = [
     "Client",

@@ -88,10 +88,11 @@ print(to_text(result))        # one block of plain text
 ### Search
 
 ```python
-client.search("lofi beats", type="video", limit=10)
+first_page = client.search("lofi beats", type="video", limit=10)
 
-# Pagination
-page2 = client.search(page_token=first_page["pagination"]["next_page_token"])
+# Pagination: pass continuation_token back as page_token
+if first_page.get("continuation_token"):
+    page2 = client.search(page_token=first_page["continuation_token"])
 ```
 
 ### Channels

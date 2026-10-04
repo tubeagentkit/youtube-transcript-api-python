@@ -71,6 +71,18 @@ def test_search_live(client: Client):
     assert len(result["video_results"]) > 0
 
 
+def test_search_pagination_live(client: Client):
+    """The README pagination example: continuation_token goes back in as page_token."""
+    first_page = client.search("lofi beats", type="video", limit=10)
+    assert "pagination" not in first_page
+    token = first_page.get("continuation_token")
+    assert token, "first page should offer a next page"
+    page2 = client.search(page_token=token)
+    assert page2["video_results"]
+    first_titles = {v.get("title") for v in first_page["video_results"]}
+    assert not first_titles & {v.get("title") for v in page2["video_results"]}
+
+
 def test_get_credits_live(client: Client):
     """Free endpoint - safe to run often."""
     result = client.get_credits()
