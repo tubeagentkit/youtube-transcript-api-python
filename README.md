@@ -4,7 +4,7 @@
 [![Website](https://img.shields.io/badge/Website-getyoutubetranscript.com-FF3B00?style=for-the-badge)](https://getyoutubetranscript.com)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org)
 
-The official Python SDK (`getyoutubetranscript`) for the [GetYouTubeTranscript](https://getyoutubetranscript.com) YouTube Transcript API. Get YouTube video transcripts in Python without a Google API key, yt-dlp, or a headless browser. Get YouTube transcripts, search videos and channels, resolve channel handles, browse a channel's full upload history, search inside a channel, pull playlist contents, and check your credit balance, all with one typed client.
+The official Python SDK (`getyoutubetranscript`) for the [GetYouTubeTranscript](https://getyoutubetranscript.com) YouTube Transcript API. Get YouTube video transcripts, captions and subtitles (optionally with per-line timestamps) in Python without a Google API key, yt-dlp, or a headless browser. Get YouTube transcripts, search videos and channels, resolve channel handles, browse a channel's full upload history, search inside a channel, pull playlist contents, and check your credit balance, all with one typed client.
 
 [![PyPI](https://img.shields.io/pypi/v/getyoutubetranscript)](https://pypi.org/project/getyoutubetranscript/)
 

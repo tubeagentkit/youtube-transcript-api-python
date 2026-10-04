@@ -12,7 +12,7 @@ from .client import Client, signup, verify_signup
 from .exceptions import GetYouTubeTranscriptError
 from .types import Segment, TranscriptData
 
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 
 __all__ = [
     "Client",
