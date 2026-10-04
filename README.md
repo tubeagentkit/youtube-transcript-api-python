@@ -6,12 +6,12 @@
 
 The official Python SDK (`getyoutubetranscript`) for the [GetYouTubeTranscript](https://getyoutubetranscript.com) YouTube Transcript API. Get YouTube video transcripts in Python without a Google API key, yt-dlp, or a headless browser. Get YouTube transcripts, search videos and channels, resolve channel handles, browse a channel's full upload history, search inside a channel, pull playlist contents, and check your credit balance, all with one typed client.
 
-Not published to PyPI yet - install straight from this repo.
+[![PyPI](https://img.shields.io/pypi/v/getyoutubetranscript)](https://pypi.org/project/getyoutubetranscript/)
 
 ## Install
 
 ```bash
-pip install git+https://github.com/tubeagentkit/youtube-transcript-api-python.git
+pip install getyoutubetranscript
 ```
 
 Requires Python 3.9+.
