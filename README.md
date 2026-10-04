@@ -6,6 +6,8 @@
 
 The official Python SDK (`getyoutubetranscript`) for the [GetYouTubeTranscript](https://getyoutubetranscript.com) YouTube Transcript API. Get YouTube video transcripts, captions and subtitles (optionally with per-line timestamps) in Python without a Google API key, yt-dlp, or a headless browser. Get YouTube transcripts, search videos and channels, resolve channel handles, browse a channel's full upload history, search inside a channel, pull playlist contents, and check your credit balance, all with one typed client.
 
+Export transcripts as plain text, timed text, JSON, SRT or WebVTT, from Python or the `getyoutubetranscript` command line. Getting `RequestBlocked` or `IpBlocked` from `youtube-transcript-api` on a cloud server? See [below](#getting-requestblocked-or-ipblocked).
+
 [![PyPI](https://img.shields.io/pypi/v/getyoutubetranscript)](https://pypi.org/project/getyoutubetranscript/)
 
 ## Install
@@ -65,6 +67,24 @@ print(result["segments"][0])
 
 Each segment is `{"start", "duration", "text"}` with `start` and `duration` in seconds. The `Segment` and `TranscriptData` typed dicts are importable from `getyoutubetranscript`.
 
+### Formats: text, timed text, JSON, SRT, WebVTT
+
+Turn a transcript into a file format with the formatters. Timed text, SRT and WebVTT need per-line timing, so fetch with `timestamps=True` (same 1 credit).
+
+```python
+from getyoutubetranscript import Client, to_srt, to_vtt, to_timed_text, to_json, to_text
+
+result = client.get_transcript("5e37ZT3SQbk", timestamps=True)
+
+open("video.srt", "w", encoding="utf-8").write(to_srt(result))   # SubRip subtitles
+open("video.vtt", "w", encoding="utf-8").write(to_vtt(result))   # WebVTT subtitles
+print(to_timed_text(result))  # "[0:03] So, Reed, education, ..." one line per caption
+print(to_json(result))        # metadata, transcript and segments
+print(to_text(result))        # one block of plain text
+```
+
+`format_transcript(result, "srt")` does the same with the format as a string (`"text"`, `"timed"`, `"json"`, `"srt"`, `"vtt"`).
+
 ### Search
 
 ```python
@@ -102,6 +122,22 @@ while page["has_more"]:
 client.get_credits()  # free - plan_credits_left, topup_credits_left, plan, rate_limit_per_minute
 ```
 
+## Command line
+
+Installing the package also installs a `getyoutubetranscript` command.
+
+```bash
+export GETYOUTUBETRANSCRIPT_API_KEY=sk_live_...
+
+getyoutubetranscript https://youtu.be/5e37ZT3SQbk                 # plain text
+getyoutubetranscript 5e37ZT3SQbk --format srt > video.srt          # SRT subtitles
+getyoutubetranscript 5e37ZT3SQbk --format timed --language en      # [m:ss] lines
+getyoutubetranscript VIDEO_1 VIDEO_2 --format json                 # one JSON list
+getyoutubetranscript VIDEO_1 VIDEO_2 --format vtt --output-dir subs # subs/<video_id>.vtt
+```
+
+Formats: `text` (default), `timed`, `json`, `srt`, `vtt`. Videos can be URLs or IDs. If one video fails, the rest still run and the command exits with status 1. `python -m getyoutubetranscript` works too.
+
 ## Error handling
 
 Every non-2xx or `{"success": false}` response raises `GetYouTubeTranscriptError` with the API's parsed error shape:
@@ -119,6 +155,49 @@ except GetYouTubeTranscriptError as e:
     print(e.status_code)   # 400 / 401 / 402 / 404 / 429 / 503, or 0 for a local network failure
     print(e.response_body) # full parsed error body, e.g. {"creditsLeft": 0} on PAYMENT_REQUIRED
 ```
+
+## Getting RequestBlocked or IpBlocked?
+
+If you use the open source `youtube-transcript-api` library, you have probably seen `RequestBlocked` or `IpBlocked` once your code runs on a server. YouTube blocks most IP addresses that belong to cloud providers (AWS, Google Cloud, Azure and others), and can also block a home IP that makes many requests. That library's own docs recommend rotating residential proxies as the workaround.
+
+This SDK calls the GetYouTubeTranscript API instead of YouTube, so YouTube never sees your server's IP. There are no proxies to buy, rotate or debug, and the same code works on your laptop, a VPS, a serverless function or a CI job:
+
+```python
+from getyoutubetranscript import Client
+
+client = Client(api_key="sk_live_...")
+result = client.get_transcript("https://www.youtube.com/watch?v=jNQXAC9IVRw", timestamps=True)
+```
+
+The trade-off: it is a paid API with a free tier (each request uses credits), while `youtube-transcript-api` is free to run if you handle the blocking yourself.
+
+## Coming from youtube-transcript-api
+
+The segment shape is the same (`text`, `start`, `duration`, in seconds), so most code ports directly.
+
+| youtube-transcript-api | getyoutubetranscript |
+| --- | --- |
+| `YouTubeTranscriptApi().fetch(video_id)` | `client.get_transcript(video, timestamps=True)` |
+| `fetched.to_raw_data()` | `result["segments"]` (already a list of dicts) |
+| `fetch(video_id, languages=["de"])` | `get_transcript(video, language="de")` |
+| Video ID only | Video ID or any YouTube URL (watch, youtu.be, Shorts, live) |
+| `SRTFormatter()`, `WebVTTFormatter()`, `TextFormatter()`, `JSONFormatter()` | `to_srt`, `to_vtt`, `to_text`, `to_json` |
+| CLI: `youtube_transcript_api VIDEO_ID --format json` | CLI: `getyoutubetranscript VIDEO --format json` |
+| Proxies for cloud servers | Not needed |
+
+```python
+# before
+from youtube_transcript_api import YouTubeTranscriptApi
+segments = YouTubeTranscriptApi().fetch("jNQXAC9IVRw").to_raw_data()
+
+# after
+from getyoutubetranscript import Client
+segments = Client(api_key="sk_live_...").get_transcript("jNQXAC9IVRw", timestamps=True)["segments"]
+```
+
+Not covered here: a list of preferred fallback languages, listing every available caption track, YouTube's machine translation of captions, and `preserve_formatting`. Request one language at a time with `language=`.
+
+The response also includes the video title, channel name, channel URL, thumbnail and word count, which `youtube-transcript-api` does not return.
 
 ## Development
 

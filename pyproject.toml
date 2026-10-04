@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "getyoutubetranscript"
-version = "0.2.2"
+version = "0.3.0"
 description = "YouTube transcript API for Python: get YouTube video transcripts, captions and subtitles with timestamps, search YouTube, and list channel and playlist videos. No proxies or headless browser."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -13,6 +13,7 @@ authors = [{ name = "tubeagentkit" }]
 keywords = [
     "youtube", "youtube-transcript", "youtube-transcripts", "youtube-transcript-api", "transcript", "transcripts",
     "captions", "subtitles", "youtube-captions", "youtube-subtitles", "timestamps", "youtube-api", "youtube-search",
+    "srt", "webvtt", "vtt", "cli",
     "llm", "rag", "ai", "api-client", "sdk",
 ]
 classifiers = [
@@ -36,6 +37,9 @@ classifiers = [
 dependencies = [
     "requests>=2.28",
 ]
+
+[project.scripts]
+getyoutubetranscript = "getyoutubetranscript.cli:main"
 
 [project.optional-dependencies]
 dev = [
