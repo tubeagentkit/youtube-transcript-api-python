@@ -6,12 +6,13 @@ OpenAPI spec:  https://getyoutubetranscript.com/openapi.json
 
 from __future__ import annotations
 
-from typing import Any, Optional
+import time
+from typing import Any, Optional, Sequence
 
 import requests
 
 from .exceptions import GetYouTubeTranscriptError
-from .types import TranscriptData
+from .types import BatchData, BatchItem, TranscriptData
 
 DEFAULT_BASE_URL = "https://getyoutubetranscript.com/api/v1"
 DEFAULT_TIMEOUT = 30.0
@@ -130,6 +131,18 @@ class Client:
             timeout=self.timeout,
         )
 
+    def _post(
+        self, path: str, body: dict[str, Any], *, extra_headers: Optional[dict[str, str]] = None
+    ) -> dict[str, Any]:
+        return _send(
+            self._session,
+            "POST",
+            f"{self.base_url}{path}",
+            headers={**self._headers(), **(extra_headers or {})},
+            json_body=_clean(body),
+            timeout=self.timeout,
+        )
+
     # -- transcript -----------------------------------------------------
 
     def get_transcript(
@@ -150,9 +163,12 @@ class Client:
                 this is ``True``.
 
         Returns:
-            dict with keys ``video_id``, ``language_code``, ``title``,
-            ``author_name``, ``author_url``, ``thumbnail_url``,
-            ``transcript`` (one block of text), and ``word_count``. With
+            dict with keys ``video_id``, ``language_code`` (the caption track
+            actually returned), ``requested_language``, ``caption_type``
+            (``"manual"`` for creator captions, ``"auto"`` for speech
+            recognition, ``None`` if unknown), ``title``, ``author_name``,
+            ``author_url``, ``thumbnail_url``, ``transcript`` (one block of
+            text), ``word_count``, ``cached`` and ``fetched_at``. With
             ``timestamps=True`` it also has ``segments``, a list of
             ``{"start": float, "duration": float, "text": str}`` (seconds),
             one per caption line.
@@ -166,6 +182,124 @@ class Client:
             {"v": video, "language": language, "timestamps": "true" if timestamps else None},
         )
         return payload["data"]
+
+    # -- batch --------------------------------------------------------------
+
+    def create_batch(
+        self,
+        videos: Sequence[str],
+        *,
+        language: Optional[str] = None,
+        timestamps: bool = False,
+        webhook_url: Optional[str] = None,
+        idempotency_key: Optional[str] = None,
+    ) -> BatchData:
+        """Queue transcripts for up to 100 videos in one call. Free to submit.
+
+        Returns immediately; transcripts are fetched in the background. 1
+        credit is charged per video that returns a transcript, and failed
+        videos are never charged. Duplicate videos are fetched once. Follow
+        with :meth:`wait_for_batch` (or :meth:`get_batch`), or pass
+        ``webhook_url`` to be notified when it finishes.
+
+        Args:
+            videos: 1-100 video URLs or 11-character IDs.
+            language: Caption language code for every video. Defaults to ``"en"``.
+            timestamps: Include per-line ``segments`` in the results.
+            webhook_url: Public https URL (port 443) that receives a signed
+                ``batch.completed`` POST. Check it with
+                :func:`~getyoutubetranscript.verify_webhook_signature` and the
+                ``webhook_secret`` returned here.
+            idempotency_key: Sent as the ``Idempotency-Key`` header: retrying
+                with the same key returns the original batch instead of
+                creating (and charging for) a second one.
+
+        Returns:
+            dict with ``batch_id``, ``status`` (``"queued"``), counts,
+            ``results_url``, and ``webhook_secret`` when ``webhook_url`` was
+            given (shown once).
+
+        Raises:
+            ValueError: if ``videos`` is empty.
+            GetYouTubeTranscriptError: e.g. ``code="TOO_MANY_BATCHES"`` (HTTP
+                429) with 5 batches still running, ``code="PAYMENT_REQUIRED"``
+                (HTTP 402) with no credits left.
+        """
+        if not videos:
+            raise ValueError("create_batch() requires at least one video")
+        payload = self._post(
+            "/batch",
+            {
+                "videos": list(videos),
+                "language": language,
+                "timestamps": True if timestamps else None,
+                "webhook_url": webhook_url,
+            },
+            extra_headers={"Idempotency-Key": idempotency_key} if idempotency_key else None,
+        )
+        return payload["data"]
+
+    def get_batch(self, batch_id: str, *, offset: int = 0, limit: int = 20) -> BatchData:
+        """Get a batch's status and one page of its results. Free.
+
+        Args:
+            batch_id: The ``batch_id`` from :meth:`create_batch`.
+            offset: Number of items to skip.
+            limit: Items per page, 1-50.
+
+        Returns:
+            dict with ``status``, counts, ``credits_charged``, ``items`` (in
+            submission order; succeeded items have the same fields as
+            :meth:`get_transcript` minus ``cached``, failed items an
+            ``error_code``), and ``next_offset`` (``None`` on the last page).
+
+        Raises:
+            GetYouTubeTranscriptError: e.g. ``code="NOT_FOUND"`` (HTTP 404) for
+                an unknown id or a batch older than 7 days.
+        """
+        payload = self._get("/batch", {"id": batch_id, "offset": offset, "limit": limit})
+        return payload["data"]
+
+    def wait_for_batch(
+        self,
+        batch_id: str,
+        *,
+        poll_interval: float = 3.0,
+        timeout: float = 900.0,
+        page_size: int = 50,
+    ) -> BatchData:
+        """Poll until a batch completes, then return it with every item. Free.
+
+        Args:
+            batch_id: The ``batch_id`` from :meth:`create_batch`.
+            poll_interval: Seconds between status checks.
+            timeout: Give up after this many seconds.
+            page_size: Items fetched per request once complete, 1-50.
+
+        Returns:
+            The batch dict from :meth:`get_batch`, with ``items`` holding all
+            items and ``next_offset`` set to ``None``.
+
+        Raises:
+            TimeoutError: if the batch hasn't completed within ``timeout``.
+            GetYouTubeTranscriptError: on API failure.
+        """
+        deadline = time.monotonic() + timeout
+        batch = self.get_batch(batch_id, limit=1)
+        while batch["status"] != "completed":
+            if time.monotonic() >= deadline:
+                raise TimeoutError(f"batch {batch_id} not completed after {timeout:g}s ({batch['pending']} pending)")
+            time.sleep(poll_interval)
+            batch = self.get_batch(batch_id, limit=1)
+
+        items: list[BatchItem] = []
+        offset: Optional[int] = 0
+        while offset is not None:
+            page = self.get_batch(batch_id, offset=offset, limit=page_size)
+            items.extend(page["items"])
+            offset = page["next_offset"]
+            batch = page
+        return {**batch, "items": items, "next_offset": None}
 
     # -- search -----------------------------------------------------------
 

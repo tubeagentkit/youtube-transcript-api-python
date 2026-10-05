@@ -67,6 +67,48 @@ print(result["segments"][0])
 
 Each segment is `{"start", "duration", "text"}` with `start` and `duration` in seconds. The `Segment` and `TranscriptData` typed dicts are importable from `getyoutubetranscript`.
 
+Every transcript also says where it came from:
+
+| Field | Meaning |
+|---|---|
+| `language_code` | The caption track actually returned |
+| `requested_language` | What you asked for. If it differs from `language_code`, YouTube didn't have that language |
+| `caption_type` | `"manual"` (uploaded by the creator), `"auto"` (YouTube speech recognition), or `None` if unknown |
+| `cached` | `True` when served from the stored copy rather than fetched from YouTube just now |
+| `fetched_at` | ISO 8601 time it was fetched from YouTube |
+
+### Batch: many videos at once
+
+Queue up to 100 videos in one call; transcripts are fetched in the background. Submitting is free, each video that returns a transcript costs 1 credit, and failed videos are never charged (10 videos where 2 have no captions = 8 credits).
+
+```python
+batch = client.create_batch(["jNQXAC9IVRw", "https://youtu.be/dQw4w9WgXcQ"], language="en")
+result = client.wait_for_batch(batch["batch_id"])  # polls, then collects every page
+
+for item in result["items"]:
+    if item["status"] == "succeeded":
+        print(item["video_id"], item["caption_type"], item["transcript"][:80])
+    else:
+        print(item["video_id"], "failed:", item["error_code"])  # e.g. TRANSCRIPT_DISABLED
+print("credits used:", result["credits_charged"])
+```
+
+`get_batch(batch_id, offset=0, limit=20)` returns the status and one page if you'd rather poll yourself. Pass `idempotency_key="..."` to `create_batch` so a retried call returns the same batch instead of queuing a second one. Batches are kept for 7 days, and an account can have 5 unfinished batches at a time.
+
+To be notified instead of polling, pass `webhook_url` (public https). The response includes a `webhook_secret` (shown once); each delivery is signed, so check it before trusting the body:
+
+```python
+from getyoutubetranscript import verify_webhook_signature
+
+# Flask example: use the raw body, not re-serialized JSON
+@app.post("/hooks/transcripts")
+def transcripts_done():
+    if not verify_webhook_signature(request.get_data(), request.headers.get("X-GYT-Signature"), WEBHOOK_SECRET):
+        abort(401)
+    event = request.get_json()  # {"event": "batch.completed", "batch_id": ..., "results_url": ...}
+    ...
+```
+
 ### Formats: text, timed text, JSON, SRT, WebVTT
 
 Turn a transcript into a file format with the formatters. Timed text, SRT and WebVTT need per-line timing, so fetch with `timestamps=True` (same 1 credit).

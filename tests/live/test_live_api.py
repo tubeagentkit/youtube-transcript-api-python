@@ -9,8 +9,8 @@ To run these yourself:
     export GYT_API_KEY=sk_live_...
     pytest tests/live -v
 
-Credit cost per run: the two paid tests below (``get_transcript``,
-``search``) each spend 1 credit. The channel and credits tests are free
+Credit cost per run: the paid tests below (``get_transcript``, ``search``,
+``batch``) each spend 1 credit. The channel and credits tests are free
 endpoints. If you're testing against a shared/limited key, run a subset
 with ``pytest tests/live -k transcript`` etc.
 """
@@ -62,6 +62,24 @@ def test_get_transcript_live(client: Client):
     assert result["video_id"] == KNOWN_VIDEO_ID
     assert result["transcript"]
     assert result["word_count"] > 0
+    assert result["requested_language"] == "en"
+    assert result["caption_type"] in ("manual", "auto", None)
+    assert isinstance(result["cached"], bool)
+    assert result["fetched_at"]
+
+
+def test_batch_live(client: Client):
+    """1 credit for the one real video; the invalid one fails and is never charged."""
+    batch = client.create_batch([KNOWN_VIDEO_ID, "aaaaaaaaaaa"])
+    assert batch["status"] == "queued" and batch["total"] == 2
+
+    result = client.wait_for_batch(batch["batch_id"], poll_interval=2, timeout=120)
+    by_video = {item["video_id"]: item for item in result["items"]}
+    assert by_video[KNOWN_VIDEO_ID]["status"] == "succeeded"
+    assert by_video[KNOWN_VIDEO_ID]["transcript"]
+    assert by_video["aaaaaaaaaaa"]["status"] == "failed"
+    assert by_video["aaaaaaaaaaa"]["charged"] is False
+    assert result["credits_charged"] == 1
 
 
 def test_search_live(client: Client):
