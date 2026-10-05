@@ -12,7 +12,7 @@ from typing import Any, Optional, Sequence
 import requests
 
 from .exceptions import GetYouTubeTranscriptError
-from .types import BatchData, BatchItem, TranscriptData
+from .types import BatchData, BatchItem, TranscriptData, TranscriptLanguagesData
 
 DEFAULT_BASE_URL = "https://getyoutubetranscript.com/api/v1"
 DEFAULT_TIMEOUT = 30.0
@@ -181,6 +181,27 @@ class Client:
             "/transcript",
             {"v": video, "language": language, "timestamps": "true" if timestamps else None},
         )
+        return payload["data"]
+
+    def get_transcript_languages(self, video: str) -> TranscriptLanguagesData:
+        """List the caption languages a video offers, before fetching one. Free.
+
+        Args:
+            video: Full or short YouTube video URL, or an 11-character video ID.
+
+        Returns:
+            dict with ``video_id``, ``default_language_code`` (what
+            :meth:`get_transcript` returns with no ``language``; ``None``
+            without captions) and ``languages``: one
+            ``{"language_code", "name", "caption_type"}`` per language and
+            caption type (``"manual"`` or ``"auto"``). Empty when the video has
+            captions turned off.
+
+        Raises:
+            GetYouTubeTranscriptError: e.g. ``code="VIDEO_UNAVAILABLE"`` (HTTP
+                404) for a private or removed video.
+        """
+        payload = self._get("/transcript/languages", {"v": video})
         return payload["data"]
 
     # -- batch --------------------------------------------------------------

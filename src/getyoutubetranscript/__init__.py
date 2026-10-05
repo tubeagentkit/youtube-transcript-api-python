@@ -11,10 +11,10 @@ See https://getyoutubetranscript.com/docs for the full API reference.
 from .client import Client, signup, verify_signup
 from .exceptions import GetYouTubeTranscriptError
 from .formatters import format_transcript, to_json, to_srt, to_text, to_timed_text, to_vtt
-from .types import BatchData, BatchItem, Segment, TranscriptData
+from .types import BatchData, BatchItem, Segment, TranscriptData, TranscriptLanguage, TranscriptLanguagesData
 from .webhooks import verify_webhook_signature
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 __all__ = [
     "BatchData",
@@ -23,6 +23,8 @@ __all__ = [
     "GetYouTubeTranscriptError",
     "Segment",
     "TranscriptData",
+    "TranscriptLanguage",
+    "TranscriptLanguagesData",
     "format_transcript",
     "signup",
     "to_json",

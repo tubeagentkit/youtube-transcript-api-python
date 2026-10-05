@@ -40,6 +40,22 @@ class TranscriptData(_TranscriptFields, total=False):
     cached: bool  # True when served from the stored copy rather than fetched now
 
 
+class TranscriptLanguage(TypedDict):
+    """One caption language a video offers."""
+
+    language_code: str
+    name: str  # YouTube's display name, e.g. "English (auto-generated)"
+    caption_type: Literal["manual", "auto"]
+
+
+class TranscriptLanguagesData(TypedDict):
+    """Result of :meth:`Client.get_transcript_languages`."""
+
+    video_id: str
+    default_language_code: Optional[str]  # what get_transcript returns with no language; None without captions
+    languages: List[TranscriptLanguage]  # empty when the video has captions turned off
+
+
 BatchStatus = Literal["queued", "processing", "completed"]
 
 

@@ -23,6 +23,16 @@ def _batch(status: str = "completed", **extra):
 
 
 @responses.activate
+def test_get_transcript_languages_sends_video_param(client: Client):
+    data = {"video_id": "kJQP7kiw5Fk", "default_language_code": "en",
+            "languages": [{"language_code": "en", "name": "English", "caption_type": "manual"}]}
+    responses.add(responses.GET, f"{BASE_URL}/transcript/languages", json={"success": True, "data": data}, status=200)
+
+    assert client.get_transcript_languages("https://youtu.be/kJQP7kiw5Fk") == data
+    assert responses.calls[0].request.url == f"{BASE_URL}/transcript/languages?v=https%3A%2F%2Fyoutu.be%2FkJQP7kiw5Fk"
+
+
+@responses.activate
 def test_create_batch_posts_json_body_and_idempotency_header(client: Client):
     responses.add(responses.POST, f"{BASE_URL}/batch", json=_batch("queued", webhook_secret="whsec_x"), status=202)
 

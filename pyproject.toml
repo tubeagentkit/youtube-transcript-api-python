@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "getyoutubetranscript"
-version = "0.4.0"
+version = "0.5.0"
 description = "YouTube transcript API for Python: get YouTube video transcripts, captions and subtitles with timestamps, search YouTube, and list channel and playlist videos. No proxies or headless browser."
 readme = "README.md"
 requires-python = ">=3.9"

@@ -77,6 +77,17 @@ Every transcript also says where it came from:
 | `cached` | `True` when served from the stored copy rather than fetched from YouTube just now |
 | `fetched_at` | ISO 8601 time it was fetched from YouTube |
 
+Not sure which languages a video has? `get_transcript_languages` lists them for free, before you spend a credit:
+
+```python
+langs = client.get_transcript_languages("kJQP7kiw5Fk")
+print(langs["default_language_code"])  # what get_transcript returns with no language
+for lang in langs["languages"]:
+    print(lang["language_code"], lang["caption_type"], lang["name"])  # "es manual Spanish"
+```
+
+An empty `languages` list means the video has captions turned off.
+
 ### Batch: many videos at once
 
 Queue up to 100 videos in one call; transcripts are fetched in the background. Submitting is free, each video that returns a transcript costs 1 credit, and failed videos are never charged (10 videos where 2 have no captions = 8 credits).

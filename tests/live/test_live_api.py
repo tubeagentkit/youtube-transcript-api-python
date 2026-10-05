@@ -68,6 +68,15 @@ def test_get_transcript_live(client: Client):
     assert result["fetched_at"]
 
 
+def test_get_transcript_languages_live(client: Client):
+    """Free endpoint."""
+    result = client.get_transcript_languages(KNOWN_VIDEO_ID)
+    assert result["video_id"] == KNOWN_VIDEO_ID
+    assert result["languages"]
+    assert all(lang["caption_type"] in ("manual", "auto") for lang in result["languages"])
+    assert result["default_language_code"] in {lang["language_code"] for lang in result["languages"]}
+
+
 def test_batch_live(client: Client):
     """1 credit for the one real video; the invalid one fails and is never charged."""
     batch = client.create_batch([KNOWN_VIDEO_ID, "aaaaaaaaaaa"])
