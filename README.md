@@ -77,7 +77,7 @@ Every transcript also says where it came from:
 | `cached` | `True` when served from the stored copy rather than fetched from YouTube just now |
 | `fetched_at` | ISO 8601 time it was fetched from YouTube |
 
-Not sure which languages a video has? `get_transcript_languages` lists them for free, before you spend a credit:
+Not sure which languages a video has? `get_transcript_languages` lists them (1 credit per call) before you fetch a transcript:
 
 ```python
 langs = client.get_transcript_languages("kJQP7kiw5Fk")

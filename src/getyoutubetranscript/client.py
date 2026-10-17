@@ -184,7 +184,7 @@ class Client:
         return payload["data"]
 
     def get_transcript_languages(self, video: str) -> TranscriptLanguagesData:
-        """List the caption languages a video offers, before fetching one. Free.
+        """List the caption languages a video offers, before fetching one. Costs 1 credit.
 
         Args:
             video: Full or short YouTube video URL, or an 11-character video ID.
