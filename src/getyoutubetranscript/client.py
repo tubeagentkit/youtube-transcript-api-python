@@ -393,7 +393,7 @@ class Client:
         return payload["data"]
 
     def get_channel_latest(self, channel: str) -> dict[str, Any]:
-        """Get a channel's metadata plus its home-tab "Latest Videos" shelf. Costs 1 credit.
+        """Get a channel's details plus its 15 newest uploads. Costs 1 credit.
 
         For the complete, paginated upload history use
         :meth:`list_channel_videos` instead.
@@ -402,9 +402,9 @@ class Client:
             channel: Channel ``@handle``, URL, or ``UC...`` id.
 
         Returns:
-            dict of channel metadata plus a home-tab video shelf. The exact
-            field set is passed through from upstream and may grow over
-            time - treat it as loosely typed.
+            dict with ``channel`` (id, title, handle, description, subscribers,
+            videos, avatar) and ``videos_sections`` (the 15 newest uploads).
+            The field set may grow over time - treat it as loosely typed.
 
         Raises:
             GetYouTubeTranscriptError: e.g. ``code="NOT_FOUND"`` (HTTP 404) if
@@ -455,8 +455,8 @@ class Client:
     ) -> dict[str, Any]:
         """List every video a channel has ever uploaded (paginated). 1 credit.
 
-        This is the channel's full ``/videos`` tab - not just the home-tab
-        shelf :meth:`get_channel_latest` returns.
+        This is the channel's full ``/videos`` tab - not just the 15 newest
+        uploads :meth:`get_channel_latest` returns.
 
         Args:
             channel: Channel ``@handle``, URL, or ``UC...`` id. Required for a
