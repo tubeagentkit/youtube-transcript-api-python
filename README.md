@@ -151,8 +151,8 @@ if first_page.get("continuation_token"):
 ### Channels
 
 ```python
-client.resolve_channel("@mkbhd")            # free - handle/URL -> channel ID
-client.get_channel_latest("@mkbhd")         # free - metadata + latest uploads
+client.resolve_channel("@mkbhd")            # 1 credit - handle/URL -> channel ID
+client.get_channel_latest("@mkbhd")         # 1 credit - metadata + latest uploads
 client.search_channel("@mkbhd", "iphone")   # search within a channel
 client.list_channel_videos("@mkbhd")        # full paginated upload history
 

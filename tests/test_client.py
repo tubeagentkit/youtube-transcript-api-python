@@ -158,7 +158,7 @@ def test_search_by_page_token(client: Client):
 
 
 @responses.activate
-def test_resolve_channel_is_free_endpoint(client: Client):
+def test_resolve_channel_calls_resolve_endpoint(client: Client):
     responses.add(
         responses.GET,
         f"{BASE_URL}/resolve",

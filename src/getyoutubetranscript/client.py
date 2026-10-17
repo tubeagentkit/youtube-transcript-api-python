@@ -376,7 +376,7 @@ class Client:
     # -- channels -----------------------------------------------------------
 
     def resolve_channel(self, handle: str) -> dict[str, Any]:
-        """Resolve a channel @handle, URL, or ``UC...`` id to its channel ID. Free.
+        """Resolve a channel @handle, URL, or ``UC...`` id to its channel ID. Costs 1 credit.
 
         Args:
             handle: Channel ``@handle``, a channel URL, or an existing
@@ -393,7 +393,7 @@ class Client:
         return payload["data"]
 
     def get_channel_latest(self, channel: str) -> dict[str, Any]:
-        """Get a channel's metadata plus its home-tab "Latest Videos" shelf. Free.
+        """Get a channel's metadata plus its home-tab "Latest Videos" shelf. Costs 1 credit.
 
         For the complete, paginated upload history use
         :meth:`list_channel_videos` instead.
