@@ -11,7 +11,24 @@ See https://getyoutubetranscript.com/docs for the full API reference.
 from .client import Client, signup, verify_signup
 from .exceptions import GetYouTubeTranscriptError
 from .formatters import format_transcript, to_json, to_srt, to_text, to_timed_text, to_vtt
-from .types import BatchData, BatchItem, Segment, TranscriptData, TranscriptLanguage, TranscriptLanguagesData
+from .types import (
+    BatchData,
+    BatchItem,
+    ChannelBanner,
+    ChannelPlaylist,
+    ChannelPlaylistsPage,
+    ChannelPost,
+    ChannelPostsPage,
+    ChannelSort,
+    ChannelTab,
+    RelatedVideo,
+    RelatedVideosData,
+    Segment,
+    TranscriptData,
+    TranscriptLanguage,
+    TranscriptLanguagesData,
+    VideoDislikesData,
+)
 from .webhooks import verify_webhook_signature
 
 __version__ = "0.5.0"
@@ -19,12 +36,22 @@ __version__ = "0.5.0"
 __all__ = [
     "BatchData",
     "BatchItem",
+    "ChannelBanner",
+    "ChannelPlaylist",
+    "ChannelPlaylistsPage",
+    "ChannelPost",
+    "ChannelPostsPage",
+    "ChannelSort",
+    "ChannelTab",
     "Client",
     "GetYouTubeTranscriptError",
+    "RelatedVideo",
+    "RelatedVideosData",
     "Segment",
     "TranscriptData",
     "TranscriptLanguage",
     "TranscriptLanguagesData",
+    "VideoDislikesData",
     "format_transcript",
     "signup",
     "to_json",

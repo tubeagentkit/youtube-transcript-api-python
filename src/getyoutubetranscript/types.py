@@ -5,7 +5,7 @@ These are ``TypedDict`` hints only: the client still returns plain dicts.
 
 from __future__ import annotations
 
-from typing import List, Literal, Optional, TypedDict
+from typing import Any, Dict, List, Literal, Optional, TypedDict
 
 
 class Segment(TypedDict):
@@ -88,3 +88,109 @@ class BatchData(TypedDict, total=False):
     credits_charged: int  # get_batch / wait_for_batch
     items: List[BatchItem]  # get_batch: one page; wait_for_batch: every item
     next_offset: Optional[int]  # get_batch: offset of the next page, None on the last one
+
+
+ChannelTab = Literal["videos", "shorts", "streams"]  # streams = the channel's Live tab
+ChannelSort = Literal["latest", "popular", "oldest"]
+
+
+class _PageFields(TypedDict, total=False):
+    has_more: bool
+    continuation_token: Optional[str]  # None on the last page; expires after 24 hours
+
+
+class ChannelPlaylist(TypedDict, total=False):
+    position: int
+    id: str
+    title: str
+    link: str
+    type: str
+    video_count_text: str  # as shown on YouTube, e.g. "12 videos"
+    video_count: int
+    thumbnail: str
+
+
+class ChannelPlaylistsPage(_PageFields, total=False):
+    """Result of :meth:`Client.list_channel_playlists`."""
+
+    playlists: List[ChannelPlaylist]
+
+
+class ChannelPost(TypedDict, total=False):
+    position: int
+    id: str
+    url: str
+    text: str
+    links: List[str]
+    published_time: str  # relative, as shown on YouTube, e.g. "2 years ago"
+    likes: str  # as shown on YouTube, e.g. "12K"
+    comments: str
+    attachment: Dict[str, Any]  # the post's image, video or poll, when it has one
+
+
+class ChannelPostsPage(_PageFields, total=False):
+    """Result of :meth:`Client.list_channel_posts`."""
+
+    posts: List[ChannelPost]
+
+
+class BannerSize(TypedDict, total=False):
+    url: str
+    width: int
+    height: int
+
+
+class ChannelBannerImages(TypedDict, total=False):
+    original: str  # uncropped
+    largest: str
+    sizes: List[BannerSize]
+
+
+class ChannelBanner(TypedDict, total=False):
+    """Result of :meth:`Client.get_channel_banner`."""
+
+    channel_id: str
+    handle: str
+    title: str
+    avatar: str
+    has_banner: bool
+    banner: ChannelBannerImages  # present only when has_banner is True
+
+
+class RelatedVideoChannel(TypedDict, total=False):
+    name: str
+    id: str
+
+
+class RelatedVideo(TypedDict, total=False):
+    position: int
+    id: str
+    title: str
+    link: str
+    channel: RelatedVideoChannel
+    views: str  # as shown on YouTube
+    published_time: str
+    length: str  # e.g. "3:32"
+    thumbnail: str
+
+
+class RelatedVideosData(TypedDict, total=False):
+    """Result of :meth:`Client.get_related_videos`."""
+
+    video_id: str
+    related: List[RelatedVideo]
+
+
+class VideoDislikesData(TypedDict, total=False):
+    """Result of :meth:`Client.get_video_dislikes`. Every number is an estimate."""
+
+    video_id: str
+    likes: int
+    dislikes: int
+    rating: float  # out of 5
+    view_count: int
+    raw_likes: int
+    raw_dislikes: int
+    deleted: bool
+    estimated: bool  # always True
+    source: str

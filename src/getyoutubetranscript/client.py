@@ -12,7 +12,19 @@ from typing import Any, Optional, Sequence
 import requests
 
 from .exceptions import GetYouTubeTranscriptError
-from .types import BatchData, BatchItem, TranscriptData, TranscriptLanguagesData
+from .types import (
+    BatchData,
+    BatchItem,
+    ChannelBanner,
+    ChannelPlaylistsPage,
+    ChannelPostsPage,
+    ChannelSort,
+    ChannelTab,
+    RelatedVideosData,
+    TranscriptData,
+    TranscriptLanguagesData,
+    VideoDislikesData,
+)
 
 DEFAULT_BASE_URL = "https://getyoutubetranscript.com/api/v1"
 DEFAULT_TIMEOUT = 30.0
@@ -450,19 +462,46 @@ class Client:
         )
         return payload["data"]
 
+    def _get_channel_page(
+        self,
+        method: str,
+        path: str,
+        channel: Optional[str],
+        continuation: Optional[str],
+        **first_page_params: Optional[str],
+    ) -> Any:
+        """Shared by the paged channel lists. ``first_page_params`` are dropped
+        when continuing, because the continuation token already carries them."""
+        if not channel and not continuation:
+            raise ValueError(f"{method}() requires either 'channel' or 'continuation'")
+        params: dict[str, Any] = {"channel": channel, "continuation": continuation}
+        if not continuation:
+            params.update(first_page_params)
+        return self._get(path, params)["data"]
+
     def list_channel_videos(
-        self, channel: Optional[str] = None, *, continuation: Optional[str] = None
+        self,
+        channel: Optional[str] = None,
+        *,
+        continuation: Optional[str] = None,
+        tab: Optional[ChannelTab] = None,
+        sort: Optional[ChannelSort] = None,
     ) -> dict[str, Any]:
         """List every video a channel has ever uploaded (paginated). 1 credit.
 
-        This is the channel's full ``/videos`` tab - not just the 15 newest
-        uploads :meth:`get_channel_latest` returns.
+        By default this is the channel's full ``/videos`` tab - not just the 15
+        newest uploads :meth:`get_channel_latest` returns. Use ``tab`` for its
+        Shorts or Live streams, and ``sort`` for its most popular or oldest.
 
         Args:
             channel: Channel ``@handle``, URL, or ``UC...`` id. Required for a
                 first page unless ``continuation`` is given.
             continuation: Continuation token from a previous response's
                 ``continuation_token``, to fetch the next page.
+            tab: ``"videos"`` (default), ``"shorts"``, or ``"streams"`` (the
+                Live tab). First page only; ignored with ``continuation``.
+            sort: ``"latest"`` (default), ``"popular"``, or ``"oldest"``. First
+                page only; ignored with ``continuation``.
 
         Returns:
             dict with ``videos`` (list), ``has_more`` (bool), and
@@ -473,14 +512,115 @@ class Client:
             GetYouTubeTranscriptError: e.g. ``code="NOT_FOUND"`` (HTTP 404) if
                 the channel doesn't exist.
         """
-        if not channel and not continuation:
-            raise ValueError(
-                "list_channel_videos() requires either 'channel' or 'continuation'"
-            )
-        payload = self._get(
-            "/channel/videos", {"channel": channel, "continuation": continuation}
+        return self._get_channel_page(
+            "list_channel_videos", "/channel/videos", channel, continuation, tab=tab, sort=sort
         )
-        return payload["data"]
+
+    def list_channel_playlists(
+        self, channel: Optional[str] = None, *, continuation: Optional[str] = None
+    ) -> ChannelPlaylistsPage:
+        """List a channel's playlists (paginated). 1 credit.
+
+        Args:
+            channel: Channel ``@handle``, URL, or ``UC...`` id. Required for a
+                first page unless ``continuation`` is given.
+            continuation: Continuation token from a previous response's
+                ``continuation_token``, to fetch the next page.
+
+        Returns:
+            dict with ``playlists`` (each with ``id``, ``title``, ``link``,
+            ``video_count`` and more), ``has_more`` (bool), and
+            ``continuation_token`` (``None`` on the last page). Pass an
+            ``id`` to :meth:`get_playlist` to list its videos.
+
+        Raises:
+            ValueError: if neither ``channel`` nor ``continuation`` is given.
+            GetYouTubeTranscriptError: e.g. ``code="NOT_FOUND"`` (HTTP 404) if
+                the channel doesn't exist.
+        """
+        return self._get_channel_page(
+            "list_channel_playlists", "/channel/playlists", channel, continuation
+        )
+
+    def list_channel_posts(
+        self, channel: Optional[str] = None, *, continuation: Optional[str] = None
+    ) -> ChannelPostsPage:
+        """List a channel's community posts (paginated). 1 credit.
+
+        Args:
+            channel: Channel ``@handle``, URL, or ``UC...`` id. Required for a
+                first page unless ``continuation`` is given.
+            continuation: Continuation token from a previous response's
+                ``continuation_token``, to fetch the next page.
+
+        Returns:
+            dict with ``posts`` (each with ``id``, ``url``, ``text``,
+            ``links``, ``published_time``, ``likes``, ``comments`` and, when
+            present, an ``attachment``), ``has_more`` (bool), and
+            ``continuation_token`` (``None`` on the last page).
+
+        Raises:
+            ValueError: if neither ``channel`` nor ``continuation`` is given.
+            GetYouTubeTranscriptError: e.g. ``code="NOT_FOUND"`` (HTTP 404) if
+                the channel doesn't exist.
+        """
+        return self._get_channel_page("list_channel_posts", "/channel/posts", channel, continuation)
+
+    def get_channel_banner(self, channel: str) -> ChannelBanner:
+        """Get a channel's banner and avatar image URLs. 1 credit.
+
+        Args:
+            channel: Channel ``@handle``, URL, or ``UC...`` id.
+
+        Returns:
+            dict with ``channel_id``, ``handle``, ``title``, ``avatar``,
+            ``has_banner`` and, when the channel has one, ``banner`` holding
+            the ``original`` and ``largest`` URLs plus every crop in ``sizes``.
+
+        Raises:
+            GetYouTubeTranscriptError: e.g. ``code="NOT_FOUND"`` (HTTP 404) if
+                the channel doesn't exist.
+        """
+        return self._get("/channel/banner", {"channel": channel})["data"]
+
+    # -- videos -------------------------------------------------------------
+
+    def get_related_videos(self, video: str) -> RelatedVideosData:
+        """Get the videos YouTube suggests next to a video. 1 credit.
+
+        Args:
+            video: Full or short YouTube video URL, or an 11-character video ID.
+
+        Returns:
+            dict with ``video_id`` and ``related``, a list of videos each with
+            ``id``, ``title``, ``link``, ``channel``, ``views``,
+            ``published_time``, ``length`` and ``thumbnail``.
+
+        Raises:
+            GetYouTubeTranscriptError: e.g. ``code="VIDEO_UNAVAILABLE"`` (HTTP
+                404) for a private or removed video.
+        """
+        return self._get("/video/related", {"v": video})["data"]
+
+    def get_video_dislikes(self, video: str) -> VideoDislikesData:
+        """Get estimated likes and dislikes for a video. 1 credit.
+
+        YouTube no longer publishes dislikes, so every number here is an
+        estimate (``estimated`` is always ``True``).
+
+        Args:
+            video: Full or short YouTube video URL, or an 11-character video ID.
+
+        Returns:
+            dict with ``video_id``, ``likes``, ``dislikes``, ``rating`` (out of
+            5), ``view_count``, ``raw_likes``, ``raw_dislikes``, ``deleted``,
+            ``estimated`` and ``source``.
+
+        Raises:
+            GetYouTubeTranscriptError: e.g. ``code="VIDEO_UNAVAILABLE"`` (HTTP
+                404) for a private or removed video.
+        """
+        return self._get("/video/dislikes", {"v": video})["data"]
 
     # -- playlists -----------------------------------------------------------
 

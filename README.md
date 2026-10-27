@@ -4,7 +4,7 @@
 [![Website](https://img.shields.io/badge/Website-getyoutubetranscript.com-FF3B00?style=for-the-badge)](https://getyoutubetranscript.com)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org)
 
-The official Python SDK (`getyoutubetranscript`) for the [GetYouTubeTranscript](https://getyoutubetranscript.com) YouTube Transcript API. Get YouTube video transcripts, captions and subtitles (optionally with per-line timestamps) in Python without a Google API key, yt-dlp, or a headless browser. Get YouTube transcripts, search videos and channels, resolve channel handles, browse a channel's full upload history, search inside a channel, pull playlist contents, and check your credit balance, all with one typed client.
+The official Python SDK (`getyoutubetranscript`) for the [GetYouTubeTranscript](https://getyoutubetranscript.com) YouTube Transcript API. Get YouTube video transcripts, captions and subtitles (optionally with per-line timestamps) in Python without a Google API key, yt-dlp, or a headless browser. Get YouTube transcripts, search videos and channels, resolve channel handles, browse a channel's full upload history (videos, Shorts or live streams), list a channel's playlists and community posts, fetch its banner, search inside a channel, pull playlist contents, get related videos and estimated dislikes, and check your credit balance, all with one typed client.
 
 Export transcripts as plain text, timed text, JSON, SRT or WebVTT, from Python or the `getyoutubetranscript` command line. Getting `RequestBlocked` or `IpBlocked` from `youtube-transcript-api` on a cloud server? See [below](#getting-requestblocked-or-ipblocked).
 
@@ -155,12 +155,36 @@ client.resolve_channel("@mkbhd")            # 1 credit - handle/URL -> channel I
 client.get_channel_latest("@mkbhd")         # 1 credit - metadata + latest uploads
 client.search_channel("@mkbhd", "iphone")   # search within a channel
 client.list_channel_videos("@mkbhd")        # full paginated upload history
+client.list_channel_playlists("@mkbhd")     # 1 credit - the channel's playlists
+client.list_channel_posts("@mkbhd")         # 1 credit - community posts
+client.get_channel_banner("@mkbhd")         # 1 credit - banner and avatar image URLs
 
-# Pagination (search_channel and list_channel_videos both work the same way)
+# Pagination (search_channel and the list_channel_* methods all work the same way)
 page = client.list_channel_videos("@mkbhd")
 while page["has_more"]:
     page = client.list_channel_videos(continuation=page["continuation_token"])
 ```
+
+`list_channel_videos` also takes `tab` (`"videos"`, `"shorts"` or `"streams"` for the Live tab) and `sort` (`"latest"`, `"popular"` or `"oldest"`). Both apply to the first page only; a `continuation` token already carries them.
+
+```python
+shorts = client.list_channel_videos("@mkbhd", tab="shorts", sort="popular")
+```
+
+Each playlist in `list_channel_playlists` has an `id` you can pass to `get_playlist`. `get_channel_banner` returns `has_banner`, `avatar`, and a `banner` with the `original` and `largest` URLs plus every crop in `sizes` (width, height, url).
+
+### Videos
+
+```python
+related = client.get_related_videos("dQw4w9WgXcQ")   # 1 credit - the videos YouTube suggests next
+for video in related["related"]:
+    print(video["id"], video["title"], video["channel"]["name"])
+
+stats = client.get_video_dislikes("dQw4w9WgXcQ")     # 1 credit
+print(stats["likes"], stats["dislikes"], stats["rating"])
+```
+
+Dislikes are estimates: YouTube no longer publishes them, so `estimated` is always `True` and the numbers will not match any official count.
 
 ### Playlists
 

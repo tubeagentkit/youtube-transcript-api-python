@@ -6,12 +6,18 @@ must always pass in CI with no API key or credits required.
 
 from __future__ import annotations
 
+from urllib.parse import parse_qs, urlparse
+
 import pytest
 import responses
 
 from getyoutubetranscript import Client, GetYouTubeTranscriptError, signup, verify_signup
 
 BASE_URL = "https://getyoutubetranscript.com/api/v1"
+
+
+def _query(request) -> dict[str, list[str]]:
+    return parse_qs(urlparse(request.url).query)
 
 
 @pytest.fixture
@@ -227,6 +233,117 @@ def test_list_channel_videos(client: Client):
         status=200,
     )
     client.list_channel_videos(channel="@TED")
+    req = responses.calls[0].request
+    assert _query(req) == {"channel": ["@TED"]}
+
+
+@responses.activate
+def test_list_channel_videos_sends_tab_and_sort_on_first_page(client: Client):
+    responses.add(
+        responses.GET,
+        f"{BASE_URL}/channel/videos",
+        json={"success": True, "data": {"videos": [{"id": "abc"}], "has_more": False}},
+        status=200,
+    )
+    result = client.list_channel_videos("@TED", tab="shorts", sort="popular")
+    assert result["videos"] == [{"id": "abc"}]
+    req = responses.calls[0].request
+    assert "tab=shorts" in req.url
+    assert "sort=popular" in req.url
+
+
+@responses.activate
+def test_list_channel_videos_drops_tab_and_sort_with_continuation(client: Client):
+    responses.add(
+        responses.GET,
+        f"{BASE_URL}/channel/videos",
+        json={"success": True, "data": {"videos": [], "has_more": False}},
+        status=200,
+    )
+    client.list_channel_videos(continuation="c_abc", tab="streams", sort="oldest")
+    req = responses.calls[0].request
+    assert "continuation=c_abc" in req.url
+    assert set(_query(req)) == {"continuation"}
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "items_key"),
+    [
+        ("list_channel_playlists", "/channel/playlists", "playlists"),
+        ("list_channel_posts", "/channel/posts", "posts"),
+    ],
+)
+class TestPagedChannelLists:
+    def test_requires_channel_or_continuation(self, client: Client, method: str, path: str, items_key: str):
+        with pytest.raises(ValueError, match=method):
+            getattr(client, method)()
+
+    @responses.activate
+    def test_first_page_sends_channel_and_returns_data(self, client: Client, method: str, path: str, items_key: str):
+        data = {items_key: [{"id": "x1"}], "has_more": True, "continuation_token": "c_next"}
+        responses.add(responses.GET, f"{BASE_URL}{path}", json={"success": True, "data": data}, status=200)
+        result = getattr(client, method)("@mkbhd")
+        assert result == data
+        req = responses.calls[0].request
+        assert req.headers["Authorization"] == "Bearer sk_live_test_key"
+        assert _query(req) == {"channel": ["@mkbhd"]}
+
+    @responses.activate
+    def test_continuation_only(self, client: Client, method: str, path: str, items_key: str):
+        responses.add(
+            responses.GET,
+            f"{BASE_URL}{path}",
+            json={"success": True, "data": {items_key: [], "has_more": False, "continuation_token": None}},
+            status=200,
+        )
+        result = getattr(client, method)(continuation="c_next")
+        assert result["has_more"] is False
+        req = responses.calls[0].request
+        assert _query(req) == {"continuation": ["c_next"]}
+
+
+@responses.activate
+def test_get_channel_banner(client: Client):
+    data = {
+        "channel_id": "UCBJycsmduvYEL83R_U4JriQ",
+        "has_banner": True,
+        "banner": {"original": "https://example.test/o", "largest": "https://example.test/l", "sizes": []},
+    }
+    responses.add(responses.GET, f"{BASE_URL}/channel/banner", json={"success": True, "data": data}, status=200)
+    result = client.get_channel_banner("@mkbhd")
+    assert result == data
+    assert "channel=%40mkbhd" in responses.calls[0].request.url
+
+
+@responses.activate
+def test_get_related_videos(client: Client):
+    data = {"video_id": "dQw4w9WgXcQ", "related": [{"id": "C6Vwl8bD33s", "title": "t", "channel": {"name": "n"}}]}
+    responses.add(responses.GET, f"{BASE_URL}/video/related", json={"success": True, "data": data}, status=200)
+    result = client.get_related_videos("https://youtu.be/dQw4w9WgXcQ")
+    assert result == data
+    assert "v=https%3A%2F%2Fyoutu.be%2FdQw4w9WgXcQ" in responses.calls[0].request.url
+
+
+@responses.activate
+def test_get_video_dislikes(client: Client):
+    data = {"video_id": "dQw4w9WgXcQ", "likes": 10, "dislikes": 2, "estimated": True}
+    responses.add(responses.GET, f"{BASE_URL}/video/dislikes", json={"success": True, "data": data}, status=200)
+    result = client.get_video_dislikes("dQw4w9WgXcQ")
+    assert result == data
+    assert "v=dQw4w9WgXcQ" in responses.calls[0].request.url
+
+
+@responses.activate
+def test_new_endpoint_errors_raise(client: Client):
+    responses.add(
+        responses.GET,
+        f"{BASE_URL}/channel/banner",
+        json={"success": False, "code": "NOT_FOUND", "message": "No such channel."},
+        status=404,
+    )
+    with pytest.raises(GetYouTubeTranscriptError) as exc_info:
+        client.get_channel_banner("@nobody-here")
+    assert exc_info.value.code == "NOT_FOUND"
 
 
 def test_get_playlist_requires_list_id_or_continuation(client: Client):
