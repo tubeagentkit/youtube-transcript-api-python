@@ -376,6 +376,7 @@ def test_get_credits_is_free_endpoint(client: Client):
             "data": {
                 "plan_credits_left": 87,
                 "topup_credits_left": 0,
+                "total_credits_left": 87,
                 "plan": "monthly",
                 "rate_limit_per_minute": 200,
             },
@@ -387,6 +388,7 @@ def test_get_credits_is_free_endpoint(client: Client):
 
     assert result["plan"] == "monthly"
     assert result["plan_credits_left"] == 87
+    assert result["total_credits_left"] == 87
     req = responses.calls[0].request
     assert req.headers["Authorization"] == "Bearer sk_live_test_key"
     assert req.url == f"{BASE_URL}/credits"

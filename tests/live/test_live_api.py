@@ -115,6 +115,8 @@ def test_get_credits_live(client: Client):
     result = client.get_credits()
     assert result["plan"] in ("free", "monthly", "yearly")
     assert isinstance(result["plan_credits_left"], int)
+    assert isinstance(result["topup_credits_left"], int)
+    assert result["total_credits_left"] == result["plan_credits_left"] + result["topup_credits_left"]
     assert isinstance(result["rate_limit_per_minute"], int)
 
 

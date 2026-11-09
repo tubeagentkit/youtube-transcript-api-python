@@ -656,9 +656,12 @@ class Client:
         """Check the remaining credit balance and plan for this API key. Free.
 
         Returns:
-            dict with ``plan_credits_left``, ``topup_credits_left``, ``plan``
-            (one of ``"free"``, ``"monthly"``, ``"yearly"``), and
-            ``rate_limit_per_minute``.
+            dict with ``plan_credits_left`` (this period's plan allowance),
+            ``topup_credits_left`` (purchased top-ups, spent only once the
+            plan allowance is 0), ``total_credits_left`` (the two combined -
+            check this one, not ``plan_credits_left`` alone, for the real
+            spendable balance), ``plan`` (one of ``"free"``, ``"monthly"``,
+            ``"yearly"``), and ``rate_limit_per_minute``.
 
         Raises:
             GetYouTubeTranscriptError: e.g. ``code="MISSING_API_KEY"``

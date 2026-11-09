@@ -197,7 +197,7 @@ while page["has_more"]:
 ### Account
 
 ```python
-client.get_credits()  # free - plan_credits_left, topup_credits_left, plan, rate_limit_per_minute
+client.get_credits()  # free - plan_credits_left, topup_credits_left, total_credits_left (the two combined), plan, rate_limit_per_minute
 ```
 
 ## Command line
