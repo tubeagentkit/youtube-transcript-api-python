@@ -334,6 +334,53 @@ def test_get_video_dislikes(client: Client):
 
 
 @responses.activate
+def test_get_video_details(client: Client):
+    data = {"video_id": "dQw4w9WgXcQ", "title": "t", "views": "1840125263", "likes": "19M", "duration": 213}
+    responses.add(responses.GET, f"{BASE_URL}/video", json={"success": True, "data": data}, status=200)
+    result = client.get_video_details("https://youtu.be/dQw4w9WgXcQ")
+    assert result == data
+    assert urlparse(responses.calls[0].request.url).path == "/api/v1/video"
+    assert _query(responses.calls[0].request) == {"v": ["https://youtu.be/dQw4w9WgXcQ"]}
+
+
+@responses.activate
+def test_get_video_comments_first_page_sends_only_v(client: Client):
+    data = {
+        "video_id": "dQw4w9WgXcQ",
+        "comments": [{"comment_id": "Ugz1", "text": "hi", "likes": "109K", "replies": 740}],
+        "has_more": True,
+        "continuation_token": "c_abc",
+    }
+    responses.add(responses.GET, f"{BASE_URL}/video/comments", json={"success": True, "data": data}, status=200)
+    result = client.get_video_comments("dQw4w9WgXcQ")
+    assert result == data
+    assert urlparse(responses.calls[0].request.url).path == "/api/v1/video/comments"
+    assert _query(responses.calls[0].request) == {"v": ["dQw4w9WgXcQ"]}
+
+
+@responses.activate
+def test_get_video_comments_next_page_sends_v_and_continuation(client: Client):
+    data = {"video_id": "dQw4w9WgXcQ", "comments": [], "has_more": False, "continuation_token": None}
+    responses.add(responses.GET, f"{BASE_URL}/video/comments", json={"success": True, "data": data}, status=200)
+    result = client.get_video_comments("dQw4w9WgXcQ", continuation="c_abc")
+    assert result == data
+    assert _query(responses.calls[0].request) == {"v": ["dQw4w9WgXcQ"], "continuation": ["c_abc"]}
+
+
+@responses.activate
+def test_get_video_comments_disabled_raises(client: Client):
+    responses.add(
+        responses.GET,
+        f"{BASE_URL}/video/comments",
+        json={"success": False, "code": "COMMENTS_DISABLED", "message": "Comments are turned off."},
+        status=404,
+    )
+    with pytest.raises(GetYouTubeTranscriptError) as exc_info:
+        client.get_video_comments("dQw4w9WgXcQ")
+    assert exc_info.value.code == "COMMENTS_DISABLED"
+
+
+@responses.activate
 def test_new_endpoint_errors_raise(client: Client):
     responses.add(
         responses.GET,

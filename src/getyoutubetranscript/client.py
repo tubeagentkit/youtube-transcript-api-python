@@ -23,6 +23,8 @@ from .types import (
     RelatedVideosData,
     TranscriptData,
     TranscriptLanguagesData,
+    VideoCommentsPage,
+    VideoDetails,
     VideoDislikesData,
 )
 
@@ -621,6 +623,53 @@ class Client:
                 404) for a private or removed video.
         """
         return self._get("/video/dislikes", {"v": video})["data"]
+
+    def get_video_details(self, video: str) -> VideoDetails:
+        """Get a video's title, description, channel, stats and tags. 1 credit.
+
+        Args:
+            video: Full or short YouTube video URL, or an 11-character video ID.
+
+        Returns:
+            dict with ``video_id``, ``title``, ``description``, ``channel``
+            (``id``, ``name``, ``subscribers``, ``thumbnail``), ``views`` (exact
+            digit string), ``likes`` (rounded label such as ``"19M"``),
+            ``upload_date``, ``duration`` (seconds), ``duration_formatted``,
+            ``thumbnails``, ``is_live``, ``is_private`` and ``keywords``.
+
+        Raises:
+            GetYouTubeTranscriptError: e.g. ``code="VIDEO_UNAVAILABLE"`` (HTTP
+                404) for a private or removed video.
+        """
+        return self._get("/video", {"v": video})["data"]
+
+    def get_video_comments(
+        self, video: str, continuation: Optional[str] = None
+    ) -> VideoCommentsPage:
+        """Get a page of a video's top comments (paginated). 1 credit per page.
+
+        Unlike the channel lists, the next page needs the same ``video`` as
+        well as ``continuation``: the token does not replace it.
+
+        Args:
+            video: Full or short YouTube video URL, or an 11-character video ID.
+                Required on every page.
+            continuation: Continuation token from a previous response's
+                ``continuation_token``, to fetch the next page.
+
+        Returns:
+            dict with ``video_id``, ``comments`` (each with ``comment_id``,
+            ``link``, ``channel``, ``published_date``, ``text``, ``likes`` and
+            ``replies``), ``has_more`` (bool), and ``continuation_token``
+            (``None`` on the last page).
+
+        Raises:
+            GetYouTubeTranscriptError: e.g. ``code="COMMENTS_DISABLED"`` (HTTP
+                404) when comments are turned off or the video doesn't exist,
+                or ``code="CURSOR_EXPIRED"`` (HTTP 400) for a token older than
+                24 hours.
+        """
+        return self._get("/video/comments", {"v": video, "continuation": continuation})["data"]
 
     # -- playlists -----------------------------------------------------------
 

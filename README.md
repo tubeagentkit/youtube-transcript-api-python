@@ -4,7 +4,7 @@
 [![Website](https://img.shields.io/badge/Website-getyoutubetranscript.com-FF3B00?style=for-the-badge)](https://getyoutubetranscript.com)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org)
 
-The official Python SDK (`getyoutubetranscript`) for the [GetYouTubeTranscript](https://getyoutubetranscript.com) YouTube Transcript API. Get YouTube video transcripts, captions and subtitles (optionally with per-line timestamps) in Python without a Google API key, yt-dlp, or a headless browser. Get YouTube transcripts, search videos and channels, resolve channel handles, browse a channel's full upload history (videos, Shorts or live streams), list a channel's playlists and community posts, fetch its banner, search inside a channel, pull playlist contents, get related videos and estimated dislikes, and check your credit balance, all with one typed client.
+The official Python SDK (`getyoutubetranscript`) for the [GetYouTubeTranscript](https://getyoutubetranscript.com) YouTube Transcript API. Get YouTube video transcripts, captions and subtitles (optionally with per-line timestamps) in Python without a Google API key, yt-dlp, or a headless browser. Get YouTube transcripts, search videos and channels, resolve channel handles, browse a channel's full upload history (videos, Shorts or live streams), list a channel's playlists and community posts, fetch its banner, search inside a channel, pull playlist contents, get video details, comments, related videos and estimated dislikes, and check your credit balance, all with one typed client.
 
 Export transcripts as plain text, timed text, JSON, SRT or WebVTT, from Python or the `getyoutubetranscript` command line. Getting `RequestBlocked` or `IpBlocked` from `youtube-transcript-api` on a cloud server? See [below](#getting-requestblocked-or-ipblocked).
 
@@ -185,6 +185,21 @@ print(stats["likes"], stats["dislikes"], stats["rating"])
 ```
 
 Dislikes are estimates: YouTube no longer publishes them, so `estimated` is always `True` and the numbers will not match any official count.
+
+```python
+details = client.get_video_details("dQw4w9WgXcQ")    # 1 credit - title, description, channel, stats, tags
+print(details["title"], details["views"], details["likes"], details["duration"])
+
+page = client.get_video_comments("dQw4w9WgXcQ")      # 1 credit per page - top comments first
+for comment in page["comments"]:
+    print(comment["channel"]["handle"], comment["likes"], comment["text"])
+
+# Pagination: pass the same video AND the continuation token
+while page["has_more"]:
+    page = client.get_video_comments("dQw4w9WgXcQ", continuation=page["continuation_token"])
+```
+
+In `get_video_details`, `views` is the exact count as a digit string, while `likes` and the channel's `subscribers` are the rounded labels YouTube shows (e.g. `"19M"`). Unlike the channel lists, `get_video_comments` needs the video on every page: the continuation token does not replace it. A `GetYouTubeTranscriptError` with `code="COMMENTS_DISABLED"` (HTTP 404) means comments are turned off or the video does not exist.
 
 ### Playlists
 

@@ -27,6 +27,9 @@ from .types import (
     TranscriptData,
     TranscriptLanguage,
     TranscriptLanguagesData,
+    VideoComment,
+    VideoCommentsPage,
+    VideoDetails,
     VideoDislikesData,
 )
 from .webhooks import verify_webhook_signature
@@ -51,6 +54,9 @@ __all__ = [
     "TranscriptData",
     "TranscriptLanguage",
     "TranscriptLanguagesData",
+    "VideoComment",
+    "VideoCommentsPage",
+    "VideoDetails",
     "VideoDislikesData",
     "format_transcript",
     "signup",

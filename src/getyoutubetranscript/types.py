@@ -194,3 +194,60 @@ class VideoDislikesData(TypedDict, total=False):
     deleted: bool
     estimated: bool  # always True
     source: str
+
+
+class VideoDetailsChannel(TypedDict, total=False):
+    id: str
+    name: str
+    subscribers: str  # rounded label as shown on YouTube, e.g. "4.56M subscribers"
+    thumbnail: str
+
+
+class VideoThumbnail(TypedDict, total=False):
+    url: str
+    width: int
+    height: int
+
+
+class VideoDetails(TypedDict, total=False):
+    """Result of :meth:`Client.get_video_details`."""
+
+    video_id: str
+    title: str
+    description: str
+    channel: VideoDetailsChannel
+    views: str  # exact view count as a digit string, e.g. "1840125263"
+    likes: str  # rounded label as shown on YouTube, e.g. "19M"
+    upload_date: str  # as shown on YouTube, e.g. "Oct 24, 2009"
+    duration: int  # length in seconds
+    duration_formatted: str  # e.g. "3:33"
+    thumbnails: List[VideoThumbnail]
+    is_live: bool
+    is_private: bool
+    keywords: List[str]  # the video's tags
+
+
+class VideoCommentChannel(TypedDict, total=False):
+    """The commenter."""
+
+    id: str
+    handle: str
+    link: str
+    thumbnail: str
+
+
+class VideoComment(TypedDict, total=False):
+    comment_id: str
+    link: str
+    channel: VideoCommentChannel
+    published_date: str  # relative, as shown on YouTube, e.g. "7 years ago (edited)"
+    text: str
+    likes: str  # rounded label, e.g. "73K"
+    replies: int
+
+
+class VideoCommentsPage(_PageFields, total=False):
+    """Result of :meth:`Client.get_video_comments`."""
+
+    video_id: str
+    comments: List[VideoComment]
