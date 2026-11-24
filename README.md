@@ -73,8 +73,8 @@ Every transcript also says where it came from:
 |---|---|
 | `language_code` | The caption track actually returned |
 | `requested_language` | What you asked for. If it differs from `language_code`, YouTube didn't have that language |
-| `caption_type` | `"manual"` (uploaded by the creator), `"auto"` (YouTube speech recognition), or `None` if unknown |
-| `cached` | `True` when served from the stored copy rather than fetched from YouTube just now |
+| `caption_type` | `"manual"` (uploaded by the creator), `"auto"` (YouTube speech recognition), `"ai"` (an AI transcript, see below), or `None` if unknown |
+| `cached` | `True` when served from the stored copy rather than fetched from YouTube just now. Absent on AI transcripts |
 | `fetched_at` | ISO 8601 time it was fetched from YouTube |
 
 Not sure which languages a video has? `get_transcript_languages` lists them (1 credit per call) before you fetch a transcript:
@@ -87,6 +87,37 @@ for lang in langs["languages"]:
 ```
 
 An empty `languages` list means the video has captions turned off.
+
+### AI transcripts for videos without captions
+
+Pass `mode` to get an AI speech-to-text transcript when a video has no captions:
+
+- `"native"` (default): captions only, 1 credit.
+- `"auto"`: captions if the video has any (1 credit), otherwise an AI transcript.
+- `"generate"`: always an AI transcript.
+
+An AI transcript costs 3 credits per minute of video, rounded up, minimum 3 (videos up to 4 hours). Reading your own AI transcript again within 24 hours costs 0, and credits are refunded automatically if it fails. With an AI mode, `language` is the language spoken; leave it out to use the video's own audio language.
+
+```python
+t = client.get_transcript("jNQXAC9IVRw", mode="auto")
+print(t["caption_type"], t.get("source"), t.get("duration_seconds"))  # "ai" "ai" 19 when the video had no captions
+```
+
+A long video can take a while. When the API answers `202` with a job, `get_transcript` polls it (free, every 5 seconds) until the transcript is ready, for up to 30 minutes by default (`wait_timeout=` to change it). It raises `TimeoutError` if the job isn't done by then; the job keeps running.
+
+To handle the job yourself, use `start_transcript`. It makes one call and returns `{"data", "job", "credits_charged"}`: `data` is the transcript, or `None` with a `job` to poll.
+
+```python
+result = client.start_transcript("dQw4w9WgXcQ", mode="generate")
+print("cost:", result["credits_charged"])  # X-Credits-Charged header
+
+if result["data"] is None:
+    job = result["job"]
+    status = client.get_transcript_job(job["job_id"])  # {"data": None, "job": {"status": "running", ...}} until done
+    transcript = client.wait_for_transcript(job)       # or poll until done
+```
+
+A failed job raises its error (`AI_FAILED`, `AUDIO_UNAVAILABLE`). Other AI errors: `LIVE_STREAM` and `TOO_LONG` (422), `TOO_MANY_JOBS` (429, 5 already in progress), and `PAYMENT_REQUIRED` (402) with `e.credits_required` set to what the transcript needs.
 
 ### Batch: many videos at once
 

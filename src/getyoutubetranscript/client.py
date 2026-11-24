@@ -7,7 +7,7 @@ OpenAPI spec:  https://getyoutubetranscript.com/openapi.json
 from __future__ import annotations
 
 import time
-from typing import Any, Optional, Sequence
+from typing import Any, Optional, Sequence, Union
 
 import requests
 
@@ -22,7 +22,11 @@ from .types import (
     ChannelTab,
     RelatedVideosData,
     TranscriptData,
+    TranscriptJob,
+    TranscriptJobResult,
     TranscriptLanguagesData,
+    TranscriptMode,
+    TranscriptResult,
     VideoCommentsPage,
     VideoDetails,
     VideoDislikesData,
@@ -30,6 +34,13 @@ from .types import (
 
 DEFAULT_BASE_URL = "https://getyoutubetranscript.com/api/v1"
 DEFAULT_TIMEOUT = 30.0
+
+
+def _int_or_none(value: Optional[str]) -> Optional[int]:
+    try:
+        return int(value) if value not in (None, "") else None
+    except ValueError:
+        return None
 
 
 def _clean(params: dict[str, Any]) -> dict[str, Any]:
@@ -47,7 +58,24 @@ def _send(
     json_body: Optional[dict[str, Any]] = None,
     timeout: float,
 ) -> dict[str, Any]:
-    """Send one HTTP request and return the parsed JSON body.
+    """Send one HTTP request and return the parsed JSON body (see :func:`_send_full`)."""
+    payload, _response = _send_full(
+        session, method, url, headers=headers, params=params, json_body=json_body, timeout=timeout
+    )
+    return payload
+
+
+def _send_full(
+    session: requests.Session,
+    method: str,
+    url: str,
+    *,
+    headers: Optional[dict[str, str]] = None,
+    params: Optional[dict[str, Any]] = None,
+    json_body: Optional[dict[str, Any]] = None,
+    timeout: float,
+) -> tuple[dict[str, Any], requests.Response]:
+    """Send one HTTP request and return the parsed JSON body and the response.
 
     Shared by :class:`Client` (authenticated endpoints) and the module-level
     ``signup``/``verify_signup`` helpers (no API key needed), so request
@@ -91,7 +119,7 @@ def _send(
             response_body=payload if isinstance(payload, dict) else None,
         )
 
-    return payload
+    return payload, response
 
 
 class Client:
@@ -136,7 +164,11 @@ class Client:
         }
 
     def _get(self, path: str, params: dict[str, Any]) -> dict[str, Any]:
-        return _send(
+        payload, _response = self._get_full(path, params)
+        return payload
+
+    def _get_full(self, path: str, params: dict[str, Any]) -> tuple[dict[str, Any], requests.Response]:
+        return _send_full(
             self._session,
             "GET",
             f"{self.base_url}{path}",
@@ -165,37 +197,175 @@ class Client:
         *,
         language: Optional[str] = None,
         timestamps: bool = False,
+        mode: Optional[TranscriptMode] = None,
+        poll_interval: Optional[float] = None,
+        wait_timeout: float = 1800.0,
     ) -> TranscriptData:
         """Get a YouTube video's transcript, plus title/author/thumbnail. 1 credit.
 
         Args:
             video: Full or short YouTube video URL, or an 11-character video ID.
             language: Caption language code (e.g. ``"en"``, ``"es"``). Defaults
-                to the API's default of ``"en"`` when omitted.
+                to the API's default of ``"en"`` when omitted. With an AI
+                ``mode``, the language spoken in the video; omit it to use the
+                video's own audio language.
             timestamps: When ``True``, also return per-line timing in
                 ``segments``. Same 1 credit. The query param is only sent when
                 this is ``True``.
+            mode: ``"native"`` (the API default: captions only, 1 credit),
+                ``"auto"`` (captions if the video has any, otherwise an AI
+                speech-to-text transcript) or ``"generate"`` (always AI). An
+                AI transcript costs 3 credits per minute of video, rounded up,
+                minimum 3; reading your own again within 24 hours costs 0.
+                Only sent when given.
+            poll_interval: Seconds between job polls when an AI transcript is
+                still being made. Defaults to the job's
+                ``poll_interval_seconds`` (5).
+            wait_timeout: Give up waiting for an AI transcript job after this
+                many seconds (default 30 minutes). The job keeps running; use
+                :meth:`start_transcript` to get the job without waiting.
 
         Returns:
             dict with keys ``video_id``, ``language_code`` (the caption track
             actually returned), ``requested_language``, ``caption_type``
             (``"manual"`` for creator captions, ``"auto"`` for speech
-            recognition, ``None`` if unknown), ``title``, ``author_name``,
-            ``author_url``, ``thumbnail_url``, ``transcript`` (one block of
-            text), ``word_count``, ``cached`` and ``fetched_at``. With
-            ``timestamps=True`` it also has ``segments``, a list of
-            ``{"start": float, "duration": float, "text": str}`` (seconds),
-            one per caption line.
+            recognition, ``"ai"`` for an AI transcript, ``None`` if unknown),
+            ``title``, ``author_name``, ``author_url``, ``thumbnail_url``,
+            ``transcript`` (one block of text), ``word_count``, ``cached`` and
+            ``fetched_at``. With ``timestamps=True`` it also has ``segments``,
+            a list of ``{"start": float, "duration": float, "text": str}``
+            (seconds), one per caption line. AI transcripts also have
+            ``source`` (``"ai"``) and ``duration_seconds``, and no ``cached``.
 
         Raises:
             GetYouTubeTranscriptError: e.g. ``code="NOT_FOUND"`` (HTTP 404) if
-                the video has no transcript/captions available.
+                the video has no transcript/captions available. With an AI
+                mode also ``PAYMENT_REQUIRED`` (402, with ``credits_required``),
+                ``LIVE_STREAM`` / ``TOO_LONG`` / ``AUDIO_UNAVAILABLE`` (422),
+                ``TOO_MANY_JOBS`` (429) and ``AI_FAILED`` (502). Credits for a
+                failed AI transcript are refunded automatically.
+            TimeoutError: if an AI transcript job isn't done within
+                ``wait_timeout``.
+        """
+        result = self.start_transcript(video, language=language, timestamps=timestamps, mode=mode)
+        if result["data"] is not None:
+            return result["data"]
+        job = result.get("job")
+        if not job:
+            raise GetYouTubeTranscriptError(
+                code="UNKNOWN_ERROR", message="Answer had no transcript and no job", status_code=0
+            )
+        return self.wait_for_transcript(
+            job, timestamps=timestamps, poll_interval=poll_interval, timeout=wait_timeout
+        )
+
+    def start_transcript(
+        self,
+        video: str,
+        *,
+        language: Optional[str] = None,
+        timestamps: bool = False,
+        mode: Optional[TranscriptMode] = None,
+    ) -> TranscriptResult:
+        """Make one ``GET /transcript`` call without waiting for an AI job.
+
+        Takes the same arguments and costs the same as :meth:`get_transcript`.
+
+        Returns:
+            dict with ``data`` (the transcript, or ``None`` while an AI
+            transcript is still being made), ``job`` (present on a 202, to
+            poll with :meth:`get_transcript_job` or
+            :meth:`wait_for_transcript`) and ``credits_charged`` (the
+            ``X-Credits-Charged`` header, sent on ``mode="auto"|"generate"``
+            answers; ``None`` when absent).
+        """
+        payload, response = self._get_full(
+            "/transcript",
+            {
+                "v": video,
+                "language": language,
+                "timestamps": "true" if timestamps else None,
+                "mode": mode,
+            },
+        )
+        result: TranscriptResult = {
+            "data": payload.get("data"),
+            "credits_charged": _int_or_none(response.headers.get("X-Credits-Charged")),
+        }
+        if payload.get("job"):
+            result["job"] = payload["job"]
+        return result
+
+    def get_transcript_job(self, job_id: str, *, timestamps: bool = False) -> TranscriptJobResult:
+        """Status or result of an AI transcript job. Free.
+
+        Only the account that started the job can read it. Jobs are kept 7 days.
+
+        Args:
+            job_id: The ``job_id`` from a 202 answer of :meth:`start_transcript`.
+            timestamps: Include ``segments`` in the finished transcript.
+
+        Returns:
+            dict with ``data`` (the transcript, or ``None`` while the job is
+            ``"queued"`` or ``"running"``) and ``job``.
+
+        Raises:
+            GetYouTubeTranscriptError: the job's own error if it failed (e.g.
+                ``AI_FAILED``, ``AUDIO_UNAVAILABLE``; credits are refunded),
+                or ``JOB_NOT_FOUND`` (HTTP 404).
         """
         payload = self._get(
-            "/transcript",
-            {"v": video, "language": language, "timestamps": "true" if timestamps else None},
+            "/transcript/jobs", {"id": job_id, "timestamps": "true" if timestamps else None}
         )
-        return payload["data"]
+        return {"data": payload.get("data"), "job": payload["job"]}
+
+    def wait_for_transcript(
+        self,
+        job: Union[str, TranscriptJob],
+        *,
+        timestamps: bool = False,
+        poll_interval: Optional[float] = None,
+        timeout: float = 1800.0,
+    ) -> TranscriptData:
+        """Poll an AI transcript job until it is done and return the transcript. Free.
+
+        Args:
+            job: The ``job`` dict from :meth:`start_transcript`, or its ``job_id``.
+            timestamps: Include ``segments`` in the transcript.
+            poll_interval: Seconds between polls. Defaults to the job's
+                ``poll_interval_seconds`` (5).
+            timeout: Give up after this many seconds (default 30 minutes).
+
+        Raises:
+            GetYouTubeTranscriptError: the job's error if it failed.
+            TimeoutError: if the job isn't done within ``timeout``. The job
+                keeps running and can be polled again later.
+        """
+        job_id = job if isinstance(job, str) else job["job_id"]
+        interval = poll_interval
+        if interval is None:
+            interval = 5.0 if isinstance(job, str) else float(job.get("poll_interval_seconds") or 5)
+        deadline = time.monotonic() + timeout
+        while True:
+            result = self.get_transcript_job(job_id, timestamps=timestamps)
+            if result["data"] is not None:
+                return result["data"]
+            current = result["job"]
+            if current.get("status") == "failed":
+                error = current.get("error") or {}
+                raise GetYouTubeTranscriptError(
+                    code=error.get("code") or "AI_FAILED",
+                    message=error.get("message") or "The AI transcript could not be made. Credits are refunded.",
+                    status_code=0,
+                    response_body={"success": False, "job": current},
+                )
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError(
+                    f"AI transcript job {job_id} not done after {timeout:g}s "
+                    f"(status {current.get('status')}). Poll it later with get_transcript_job()."
+                )
+            time.sleep(min(interval, remaining))
 
     def get_transcript_languages(self, video: str) -> TranscriptLanguagesData:
         """List the caption languages a video offers, before fetching one. Costs 1 credit.

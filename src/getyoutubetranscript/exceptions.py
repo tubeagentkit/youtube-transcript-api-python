@@ -27,6 +27,12 @@ class GetYouTubeTranscriptError(Exception):
             that need fields beyond ``code``/``message`` (e.g. ``RATE_LIMITED``
             includes ``requestsThisMinute``; ``PAYMENT_REQUIRED`` includes
             ``creditsLeft`` and ``topupCreditsLeft``).
+        credits_required: Credits an AI transcript needs. Set on
+            ``PAYMENT_REQUIRED`` for ``mode="generate"|"auto"``, else ``None``.
+
+    AI transcript codes: ``LIVE_STREAM``, ``TOO_LONG``, ``AUDIO_UNAVAILABLE``
+    (422), ``TOO_MANY_JOBS`` (429), ``AI_FAILED`` (502) and ``JOB_NOT_FOUND``
+    (404).
     """
 
     def __init__(
@@ -41,6 +47,7 @@ class GetYouTubeTranscriptError(Exception):
         self.message = message
         self.status_code = status_code
         self.response_body = response_body or {}
+        self.credits_required: Optional[int] = self.response_body.get("credits_required")
         super().__init__(f"[{code}] {message} (HTTP {status_code})")
 
     def __repr__(self) -> str:  # pragma: no cover - cosmetic

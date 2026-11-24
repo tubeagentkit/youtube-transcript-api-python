@@ -29,15 +29,61 @@ class _TranscriptRequired(TypedDict):
 
 class _TranscriptFields(_TranscriptRequired, total=False):
     requested_language: str  # differs from language_code when YouTube fell back to another track
-    caption_type: Optional[Literal["manual", "auto"]]  # creator captions vs speech recognition; None = unknown
+    caption_type: Optional[Literal["manual", "auto", "ai"]]  # creator captions, speech recognition, or AI; None = unknown
     fetched_at: Optional[str]  # ISO 8601 time the transcript was fetched from YouTube
     segments: List[Segment]  # present only when timestamps=True
+    source: Literal["ai"]  # present only on AI transcripts
+    duration_seconds: int  # video length; present only on AI transcripts, the cost is based on it
 
 
 class TranscriptData(_TranscriptFields, total=False):
     """Result of :meth:`Client.get_transcript`."""
 
-    cached: bool  # True when served from the stored copy rather than fetched now
+    cached: bool  # True when served from the stored copy rather than fetched now; absent on AI transcripts
+
+
+TranscriptMode = Literal["native", "auto", "generate"]
+"""``native``: captions only (1 credit). ``auto``: captions if any, else AI. ``generate``: always AI.
+An AI transcript costs 3 credits per minute of video, rounded up, minimum 3."""
+
+
+class _JobError(TypedDict, total=False):
+    code: str
+    message: str
+
+
+class _TranscriptJobRequired(TypedDict):
+    job_id: str
+    status: Literal["queued", "running", "done", "failed"]
+    video_id: str
+    credits_charged: int  # taken when the job started; refunded automatically if it fails
+    poll_url: str  # /api/v1/transcript/jobs?id=<job_id>
+    poll_interval_seconds: int  # how long to wait between polls (5)
+    created_at: str
+
+
+class TranscriptJob(_TranscriptJobRequired, total=False):
+    """An AI transcript job, returned when the transcript takes longer than about 20 seconds."""
+
+    error: _JobError  # present only when status is "failed"
+
+
+class _TranscriptResultRequired(TypedDict):
+    data: Optional[TranscriptData]  # None while an AI transcript is still being made
+    credits_charged: Optional[int]  # X-Credits-Charged header; None when not sent
+
+
+class TranscriptResult(_TranscriptResultRequired, total=False):
+    """Result of :meth:`Client.start_transcript`."""
+
+    job: TranscriptJob  # present on a 202 answer
+
+
+class TranscriptJobResult(TypedDict):
+    """Result of :meth:`Client.get_transcript_job`."""
+
+    data: Optional[TranscriptData]  # None while the job is queued or running
+    job: TranscriptJob
 
 
 class TranscriptLanguage(TypedDict):
