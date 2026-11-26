@@ -381,6 +381,40 @@ def test_get_video_comments_disabled_raises(client: Client):
 
 
 @responses.activate
+def test_get_tiktok_transcript(client: Client):
+    url = "https://www.tiktok.com/@thedailybugleofficial/video/7039900146041343278"
+    data = {
+        "video_id": "7039900146041343278",
+        "author": "thedailybugleofficial",
+        "description": "d",
+        "language": "eng-US",
+        "auto_generated": True,
+        "segments": [{"start": 4.525, "text": "In your book, you revealed that the name spider man was your idea."}],
+    }
+    responses.add(responses.GET, f"{BASE_URL}/tiktok/transcript", json={"success": True, "data": data}, status=200)
+    result = client.get_tiktok_transcript(url)
+    assert result == data
+    req = responses.calls[0].request
+    assert urlparse(req.url).path == "/api/v1/tiktok/transcript"
+    assert _query(req) == {"url": [url]}
+    assert req.headers["Authorization"] == "Bearer sk_live_test_key"
+
+
+@responses.activate
+def test_get_tiktok_transcript_not_found_raises(client: Client):
+    responses.add(
+        responses.GET,
+        f"{BASE_URL}/tiktok/transcript",
+        json={"success": False, "code": "TRANSCRIPT_NOT_FOUND", "message": "No captions."},
+        status=404,
+    )
+    with pytest.raises(GetYouTubeTranscriptError) as exc_info:
+        client.get_tiktok_transcript("7039900146041343278")
+    assert exc_info.value.code == "TRANSCRIPT_NOT_FOUND"
+    assert exc_info.value.status_code == 404
+
+
+@responses.activate
 def test_new_endpoint_errors_raise(client: Client):
     responses.add(
         responses.GET,

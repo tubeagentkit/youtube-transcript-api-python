@@ -297,3 +297,21 @@ class VideoCommentsPage(_PageFields, total=False):
 
     video_id: str
     comments: List[VideoComment]
+
+
+class TikTokSegment(TypedDict):
+    """One caption line of a TikTok transcript (no ``duration``, unlike :class:`Segment`)."""
+
+    start: float  # start time in seconds
+    text: str
+
+
+class TikTokTranscript(TypedDict, total=False):
+    """Result of :meth:`Client.get_tiktok_transcript`."""
+
+    video_id: str  # numeric TikTok video ID, e.g. "7039900146041343278"
+    author: str  # the creator's handle, without the "@"
+    description: str  # the video's caption, cut to 500 characters
+    language: str  # caption language, e.g. "eng-US"
+    auto_generated: bool
+    segments: List[TikTokSegment]

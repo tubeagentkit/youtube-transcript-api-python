@@ -21,6 +21,7 @@ from .types import (
     ChannelSort,
     ChannelTab,
     RelatedVideosData,
+    TikTokTranscript,
     TranscriptData,
     TranscriptJob,
     TranscriptJobResult,
@@ -868,6 +869,29 @@ class Client:
             raise ValueError("get_playlist() requires either 'list_id' or 'continuation'")
         payload = self._get("/playlist", {"list": list_id, "continuation": continuation})
         return payload["data"]
+
+    # -- tiktok --------------------------------------------------------------
+
+    def get_tiktok_transcript(self, url: str) -> TikTokTranscript:
+        """Get a TikTok video's captions with timestamps. 1 credit.
+
+        Args:
+            url: TikTok video URL, a short link such as
+                ``https://vm.tiktok.com/...``, or the numeric video ID.
+
+        Returns:
+            dict with ``video_id``, ``author`` (handle without the ``@``),
+            ``description`` (up to 500 characters), ``language`` (e.g.
+            ``"eng-US"``), ``auto_generated`` (bool), and ``segments`` (each
+            with ``start`` in seconds and ``text``; no ``duration``).
+
+        Raises:
+            GetYouTubeTranscriptError: e.g. ``code="INVALID_URL"`` (HTTP 400)
+                for something that isn't a TikTok video, or
+                ``code="TRANSCRIPT_NOT_FOUND"`` (HTTP 404, not charged) when
+                the video has no captions or doesn't exist.
+        """
+        return self._get("/tiktok/transcript", {"url": url})["data"]
 
     # -- account -----------------------------------------------------------
 

@@ -4,7 +4,7 @@
 [![Website](https://img.shields.io/badge/Website-getyoutubetranscript.com-FF3B00?style=for-the-badge)](https://getyoutubetranscript.com)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org)
 
-The official Python SDK (`getyoutubetranscript`) for the [GetYouTubeTranscript](https://getyoutubetranscript.com) YouTube Transcript API. Get YouTube video transcripts, captions and subtitles (optionally with per-line timestamps) in Python without a Google API key, yt-dlp, or a headless browser. Get YouTube transcripts, search videos and channels, resolve channel handles, browse a channel's full upload history (videos, Shorts or live streams), list a channel's playlists and community posts, fetch its banner, search inside a channel, pull playlist contents, get video details, comments, related videos and estimated dislikes, and check your credit balance, all with one typed client.
+The official Python SDK (`getyoutubetranscript`) for the [GetYouTubeTranscript](https://getyoutubetranscript.com) YouTube Transcript API. Get YouTube video transcripts, captions and subtitles (optionally with per-line timestamps) in Python without a Google API key, yt-dlp, or a headless browser. Get YouTube transcripts, search videos and channels, resolve channel handles, browse a channel's full upload history (videos, Shorts or live streams), list a channel's playlists and community posts, fetch its banner, search inside a channel, pull playlist contents, get video details, comments, related videos and estimated dislikes, get TikTok transcripts, and check your credit balance, all with one typed client.
 
 Export transcripts as plain text, timed text, JSON, SRT or WebVTT, from Python or the `getyoutubetranscript` command line. Getting `RequestBlocked` or `IpBlocked` from `youtube-transcript-api` on a cloud server? See [below](#getting-requestblocked-or-ipblocked).
 
@@ -239,6 +239,17 @@ page = client.get_playlist("PLillGF-RfqbYE6Ik_EuXA2iZFcE082B3s")
 while page["has_more"]:
     page = client.get_playlist(continuation=page["continuation_token"])
 ```
+
+### TikTok
+
+```python
+tiktok = client.get_tiktok_transcript("https://www.tiktok.com/@thedailybugleofficial/video/7039900146041343278")  # 1 credit
+print(tiktok["author"], tiktok["language"], tiktok["auto_generated"])  # thedailybugleofficial eng-US True
+for segment in tiktok["segments"]:
+    print(segment["start"], segment["text"])  # first line: 4.525 In your book, you revealed that the name spider man was your idea.
+```
+
+`get_tiktok_transcript` takes a full video URL, a short link (`vm.tiktok.com/...`) or the numeric video ID. Each segment has `start` (seconds) and `text`, but no `duration`. `description` is the video's caption, cut to 500 characters. A `GetYouTubeTranscriptError` with `code="TRANSCRIPT_NOT_FOUND"` (HTTP 404) means the video has no captions or does not exist; that call is not charged.
 
 ### Account
 
